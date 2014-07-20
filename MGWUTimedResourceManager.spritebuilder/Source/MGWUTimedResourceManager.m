@@ -18,6 +18,10 @@ static const NSString* INCREMENT_AMOUNT_KEY = @"IncrementAmount";
 static const NSString* INCREMENT_TIME_INTERVAL_KEY = @"IncrementTimeInterval";
 static const NSString* DATE_VALUE_LAST_LESS_THAN_MAX_KEY = @"DateValueLastLessThanMax";
 static const NSString* AUTO_COLLECT_KEY = @"AutoCollect";
+static const NSString* NOTIFY_USER_KEY = @"NotifyUser";
+static const NSString* NOTIFICATION_BODY_TEXT = @"BodyText";
+static const NSString* NOTIFICATION_ALERT_TEXT = @"AlertText";
+static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
 
 #pragma mark -
 #pragma mark Lifecycle
@@ -70,6 +74,7 @@ static const NSString* AUTO_COLLECT_KEY = @"AutoCollect";
                              incrementAmount:(NSInteger)incrementAmount
                       incrementTimeInSeconds:(NSTimeInterval)incrementTimeInSeconds
                                  autoCollect:(BOOL)autoCollect
+                                  notifyUser:(BOOL)notifyUser
 {
     NSDictionary* resourceDictionary = [[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key];
     
@@ -84,25 +89,34 @@ static const NSString* AUTO_COLLECT_KEY = @"AutoCollect";
                                                 INCREMENT_AMOUNT_KEY: @(incrementAmount),
                                                 INCREMENT_TIME_INTERVAL_KEY: @(incrementTimeInSeconds),
                                                 DATE_VALUE_LAST_LESS_THAN_MAX_KEY: now,
-                                                AUTO_COLLECT_KEY: @(autoCollect)};
+                                                AUTO_COLLECT_KEY: @(autoCollect),
+                                                NOTIFY_USER_KEY: @(notifyUser),
+                                                NOTIFICATION_BODY_TEXT: @"",
+                                                NOTIFICATION_ALERT_TEXT: @"",
+                                                NOTIFICATION_ALERT_SOUND: @""};
         
         [[NSUserDefaults standardUserDefaults] setObjectEncrypted:newResourceDictionary forKey:key];
     }
     
     [self iterativelyAddResourceToCollectQueueWithKey:key];
-    return [self resourceValueForKey:key];
+    
+    NSNumber* resourceValue = [resourceDictionary objectForKey:VALUE_KEY];
+    return [resourceValue integerValue];
 }
 
 
 - (NSInteger)getValueForTimedResourceWithKey:(NSString*)key
 {
     [self iterativelyAddResourceToCollectQueueWithKey:key];
-    return [self resourceValueForKey:key];
+    
+    NSDictionary* resourceDictionary = [self getResourceDictionaryForKey:key];
+    NSNumber* resourceValue = [resourceDictionary objectForKey:VALUE_KEY];
+    return [resourceValue integerValue];
 }
 
 - (void)setValue:(NSInteger)value forTimedResourceWithKey:(NSString*)key
 {
-    NSMutableDictionary* resourceDictionary = [[[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key] mutableCopy];
+    NSMutableDictionary* resourceDictionary = [[self getResourceDictionaryForKey:key] mutableCopy];
     
     NSNumber* newValue = @(value);
     NSNumber* maxValue = [resourceDictionary objectForKey:MAX_VALUE_KEY];
@@ -134,11 +148,13 @@ static const NSString* AUTO_COLLECT_KEY = @"AutoCollect";
     
     [resourceDictionary setObject:newValue forKey:VALUE_KEY];
     [[NSUserDefaults standardUserDefaults] setObjectEncrypted:[NSDictionary dictionaryWithDictionary:resourceDictionary] forKey:key];
+    
+    [self scheduleLocalNotificationForResourceWithKey:key];
 }
 
 - (NSTimeInterval)getSecondsLeftBeforeIncrementForTimedResourceWithKey:(NSString*)key
 {
-    NSDictionary* resourceDictionary = [[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key];
+    NSDictionary* resourceDictionary = [self getResourceDictionaryForKey:key];
     
     NSDate* dateValueLastLessThanMax = [resourceDictionary objectForKey:DATE_VALUE_LAST_LESS_THAN_MAX_KEY];
     
@@ -151,8 +167,9 @@ static const NSString* AUTO_COLLECT_KEY = @"AutoCollect";
     
     NSInteger value = [[resourceDictionary objectForKey:VALUE_KEY] integerValue];
     NSInteger maximumValue = [[resourceDictionary objectForKey:MAX_VALUE_KEY] integerValue];
+    NSInteger uncollectedValue = [[resourceDictionary objectForKey:VALUE_AVAILABLE_TO_COLLECT_KEY] integerValue];
     
-    if (value < maximumValue)
+    if (value + uncollectedValue < maximumValue)
     {
         return (result >= 0.0) ? result : 0.0;
     }
@@ -164,7 +181,7 @@ static const NSString* AUTO_COLLECT_KEY = @"AutoCollect";
 
 - (NSInteger)getMaximumValueForTimedResourceWithKey:(NSString*)key
 {
-    NSDictionary* resourceDictionary = [[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key];
+    NSDictionary* resourceDictionary = [self getResourceDictionaryForKey:key];
     NSNumber* maximumValue = [resourceDictionary objectForKey:MAX_VALUE_KEY];
     return [maximumValue integerValue];
 }
@@ -179,23 +196,38 @@ static const NSString* AUTO_COLLECT_KEY = @"AutoCollect";
 {
     [self iterativelyAddResourceToCollectQueueWithKey:key];
     
-    NSDictionary* resourceDictionary = [[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key];
+    NSDictionary* resourceDictionary = [self getResourceDictionaryForKey:key];
     NSNumber* resourcesAvailableToCollect = [resourceDictionary objectForKey:VALUE_AVAILABLE_TO_COLLECT_KEY];
     return [resourcesAvailableToCollect integerValue];
 }
 
-//TODO: Alert action?
-- (void)scheduleNotificationsForResourceWithKey:(NSString*)key andAlertBody:(NSString*)body
+- (void)setNotificationBodyText:(NSString*)bodyText alertText:(NSString*)alertText andSound:(NSString*)soundFileName forKey:(NSString*)key
 {
+    NSMutableDictionary* resourceDictionary = [[self getResourceDictionaryForKey:key] mutableCopy];
+    if (bodyText != nil) [resourceDictionary setObject:bodyText forKey:NOTIFICATION_BODY_TEXT];
+    if (alertText != nil) [resourceDictionary setObject:alertText forKey:NOTIFICATION_ALERT_TEXT];
+    if (soundFileName != nil) [resourceDictionary setObject:soundFileName forKey:NOTIFICATION_ALERT_SOUND];
     
+    [[NSUserDefaults standardUserDefaults] setObjectEncrypted:[NSDictionary dictionaryWithDictionary:resourceDictionary] forKey:key];
 }
 
 #pragma mark -
 #pragma mark Private Methods
 
-- (void)applyAutoCollectIfApplicableForKey:(NSString*)key
+#pragma mark Utility
+
+- (NSDictionary*)getResourceDictionaryForKey:(NSString*)key
 {
     NSDictionary* resourceDictionary = [[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key];
+    NSAssert(resourceDictionary != nil, @"Error - Resource does not exist or key is wrong. Did you create the resource with getOrCreateTimedResourceWithKey: ?");
+    return resourceDictionary;
+}
+
+#pragma mark Collection
+
+- (void)applyAutoCollectIfApplicableForKey:(NSString*)key
+{
+    NSDictionary* resourceDictionary = [self getResourceDictionaryForKey:key];
     
     BOOL autoCollect = [[resourceDictionary objectForKey:AUTO_COLLECT_KEY] boolValue];
     
@@ -205,16 +237,9 @@ static const NSString* AUTO_COLLECT_KEY = @"AutoCollect";
     }
 }
 
-- (NSInteger)resourceValueForKey:(NSString*)key
-{
-    NSDictionary* resourceDictionary = [[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key];
-    NSNumber* resourceValue = [resourceDictionary objectForKey:VALUE_KEY];
-    return [resourceValue integerValue];
-}
-
 - (void)iterativelyAddResourceToCollectQueueWithKey:(NSString*)key
 {
-    NSMutableDictionary* resourceDictionary = [[[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key] mutableCopy];
+    NSMutableDictionary* resourceDictionary = [[self getResourceDictionaryForKey:key] mutableCopy];
     
     NSDate* dateValueLastLessThanMax = [resourceDictionary objectForKey:DATE_VALUE_LAST_LESS_THAN_MAX_KEY];
     NSTimeInterval timeIntervalSinceDateValueLastLessThanMax = [[NSDate date] timeIntervalSinceDate:dateValueLastLessThanMax];
@@ -252,6 +277,8 @@ static const NSString* AUTO_COLLECT_KEY = @"AutoCollect";
         [resourceDictionary setObject:newLastMaxReferenceDate forKey:DATE_VALUE_LAST_LESS_THAN_MAX_KEY];
         
         [[NSUserDefaults standardUserDefaults] setObjectEncrypted:[NSDictionary dictionaryWithDictionary:resourceDictionary] forKey:key];
+        
+        [self scheduleLocalNotificationForResourceWithKey:key];
     }
     
     // Collect the resources if auto collect is on
@@ -260,7 +287,7 @@ static const NSString* AUTO_COLLECT_KEY = @"AutoCollect";
 
 - (void)actuallyCollectValueWithKey:(NSString*)key
 {
-    NSMutableDictionary* resourceDictionary = [[[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key] mutableCopy];
+    NSMutableDictionary* resourceDictionary = [[self getResourceDictionaryForKey:key] mutableCopy];
     
     NSInteger currentValue = [[resourceDictionary objectForKey:VALUE_KEY] integerValue];
     NSInteger maximumValue = [[resourceDictionary objectForKey:MAX_VALUE_KEY] integerValue];
@@ -281,7 +308,7 @@ static const NSString* AUTO_COLLECT_KEY = @"AutoCollect";
 
 - (NSInteger)getNumberOfUncollectedIncrementsElapsedForKey:(NSString*)key
 {
-    NSDictionary* resourceDictionary = [[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key];
+    NSDictionary* resourceDictionary = [self getResourceDictionaryForKey:key];
     
     NSDate* dateValueLastLessThanMax = [resourceDictionary objectForKey:DATE_VALUE_LAST_LESS_THAN_MAX_KEY];
     NSTimeInterval timeIntervalSinceDateValueLastLessThanMax = [[NSDate date] timeIntervalSinceDate:dateValueLastLessThanMax];
@@ -299,13 +326,87 @@ static const NSString* AUTO_COLLECT_KEY = @"AutoCollect";
         if (currentValue > maximumValue)
             currentValue = maximumValue;
 
-        
         intervalCount++;
         timeIntervalSinceDateValueLastLessThanMax -= timeBetweenIncrements;
-        
     }
     
     return intervalCount;
+}
+
+#pragma mark Notifications
+
+- (void)scheduleLocalNotificationForResourceWithKey:(NSString*)key
+{
+    NSDictionary* resourceDictionary = [self getResourceDictionaryForKey:key];
+    BOOL notifyUser = [[resourceDictionary objectForKey:NOTIFY_USER_KEY] boolValue];
+    
+    if (notifyUser)
+    {
+        BOOL autoCollect = [[resourceDictionary objectForKey:AUTO_COLLECT_KEY] boolValue];
+        NSInteger incrementAmount = [[resourceDictionary objectForKey:INCREMENT_AMOUNT_KEY] integerValue];
+        NSTimeInterval timeBeforeResourceAvailable = [self getSecondsLeftBeforeIncrementForTimedResourceWithKey:key];
+        
+        UILocalNotification* localNotification = [UILocalNotification new];
+        
+        if (localNotification == nil)
+        {
+            NSLog(@"MGWUTimedResourceManager Error - User notification not scheduled.");
+            return;
+        }
+        
+        localNotification.fireDate = [NSDate dateWithTimeInterval:timeBeforeResourceAvailable sinceDate:[NSDate date]];
+        
+        if (autoCollect)
+        {
+            localNotification.alertBody = [NSString stringWithFormat:@"Your %@ count has increased by %ld!", key, (long)incrementAmount];
+            localNotification.alertAction = @"play";
+        }
+        else
+        {
+            localNotification.alertBody = [NSString stringWithFormat:@"Time to collect your %@!", key];
+            localNotification.alertAction = @"collect!";
+        }
+        
+        NSString* bodyText = [resourceDictionary objectForKey:NOTIFICATION_BODY_TEXT];
+        NSString* alertText = [resourceDictionary objectForKey:NOTIFICATION_ALERT_TEXT];
+        NSString* alertSound = [resourceDictionary objectForKey:NOTIFICATION_ALERT_SOUND];
+        
+        if (![bodyText isEqualToString:@""]) localNotification.alertBody = bodyText;
+        if (![alertText isEqualToString:@""]) localNotification.alertAction = alertText;
+        if (![alertSound isEqualToString:@""]) localNotification.soundName = alertSound;
+        
+        localNotification.applicationIconBadgeNumber = 1;
+        localNotification.userInfo = @{@"Resource": key};
+        
+        // Unschedule all local notifications for this key
+        [self unscheduleLocalNotificationsForKey:key];
+        
+        // Schedule the new local notification for this key
+        [[UIApplication sharedApplication] scheduleLocalNotification:localNotification];
+    }
+}
+
+- (void)unscheduleLocalNotificationsForKey:(NSString*)key
+{
+    NSMutableArray* scheduledLocalNotifications = [[UIApplication sharedApplication].scheduledLocalNotifications mutableCopy];
+    NSMutableArray* notificationsToRemove = [NSMutableArray array];
+    
+    for (UILocalNotification* notification in scheduledLocalNotifications)
+    {
+        NSDictionary* userInfo = notification.userInfo;
+        NSString* resourceKey = [userInfo objectForKey:@"Resource"];
+        if ([resourceKey isEqualToString:key])
+        {
+            [notificationsToRemove addObject:notification];
+        }
+    }
+    
+    for (UILocalNotification* notification in notificationsToRemove)
+    {
+        [scheduledLocalNotifications removeObject:notification];
+    }
+    
+    [UIApplication sharedApplication].scheduledLocalNotifications = [NSArray arrayWithArray:scheduledLocalNotifications];
 }
 
 @end

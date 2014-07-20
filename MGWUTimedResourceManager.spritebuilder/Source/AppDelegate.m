@@ -57,6 +57,12 @@
     return YES;
 }
 
+- (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification
+{
+    application.applicationIconBadgeNumber = 0;
+    CCLOG(@"%@", notification.alertBody);
+}
+
 - (CCScene*) startScene
 {
     return [CCBReader loadAsScene:@"MainScene"];

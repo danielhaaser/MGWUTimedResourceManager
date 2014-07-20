@@ -3,7 +3,12 @@
 <plist version="1.0">
 <dict>
 	<key>filenames</key>
-	<dict/>
+	<dict>
+		<key>sounds/gemPing.wav</key>
+		<string>sounds/gemPing.caf</string>
+		<key>sounds/lifeUp.wav</key>
+		<string>sounds/lifeUp.caf</string>
+	</dict>
 	<key>metadata</key>
 	<dict>
 		<key>version</key>

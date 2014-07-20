@@ -2,7 +2,7 @@
 //  MainScene.m
 //  PROJECTNAME
 //
-//  Created by Viktor on 10/10/13.
+//  Created by Daniel Haaser on 07/12/14.
 //  Copyright (c) 2013 MakeGamesWithUs. All rights reserved.
 //
 
@@ -22,19 +22,36 @@
 
 - (void)didLoadFromCCB
 {
+    //  Create a lives timed resource that must be collected to get added
     [[MGWUTimedResourceManager sharedManager] getOrCreateTimedResourceWithKey:@"Lives"
                                                                  initialValue:3
                                                                  maximumValue:5
                                                               incrementAmount:1
                                                        incrementTimeInSeconds:30.0
-                                                                  autoCollect:NO];
+                                                                  autoCollect:NO
+                                                                   notifyUser:YES];
+
     
+    //  Create a gems timed resource that is automatically added
     [[MGWUTimedResourceManager sharedManager] getOrCreateTimedResourceWithKey:@"Gems"
                                                                  initialValue:10
                                                                  maximumValue:100000
                                                               incrementAmount:5
                                                        incrementTimeInSeconds:45.0
-                                                                  autoCollect:YES];
+                                                                  autoCollect:YES
+                                                                   notifyUser:YES];
+    
+    //  Set custom life notification text
+    [[MGWUTimedResourceManager sharedManager] setNotificationBodyText:@"You have an extra life waiting to be collected!"
+                                                            alertText:@"collect"
+                                                             andSound:@"Published-iOS/sounds/lifeUp.caf"
+                                                               forKey:@"Lives"];
+    
+    //  Set custom gems notification text
+    [[MGWUTimedResourceManager sharedManager] setNotificationBodyText:@"You just earned 10 more gems!"
+                                                            alertText:@"play"
+                                                             andSound:@"Published-iOS/sounds/gemPing.caf"
+                                                               forKey:@"Gems"];
     
     [self schedule:@selector(updateLivesLabels) interval:1.0f];
     [self schedule:@selector(updateGemsLabels) interval:1.0f];
@@ -53,18 +70,21 @@
 
 - (void)livesCollectPressed
 {
+    //  Collect the available lives
     [[MGWUTimedResourceManager sharedManager] collectResourceWithKey:@"Lives"];
     [self updateLivesLabels];
 }
 
 - (void)livesBuyPressed
 {
+    // If they buy the lives pack, max out thier lives
     NSInteger maximumLives = [[MGWUTimedResourceManager sharedManager] getMaximumValueForTimedResourceWithKey:@"Lives"];
     [[MGWUTimedResourceManager sharedManager] setValue:maximumLives forTimedResourceWithKey:@"Lives"];
 }
 
 - (void)lifeLostPressed
 {
+    // Oh no, the user screwed up and lost a life!
     NSInteger lives = [[MGWUTimedResourceManager sharedManager] getValueForTimedResourceWithKey:@"Lives"];
     lives--;
     [[MGWUTimedResourceManager sharedManager] setValue:(lives >= 0) ? lives : 0 forTimedResourceWithKey:@"Lives"];
@@ -73,6 +93,7 @@
 
 - (void)gemsBuyPressed
 {
+    // Add 100 gems for buying the gems pack
     NSInteger gems = [[MGWUTimedResourceManager sharedManager] getValueForTimedResourceWithKey:@"Gems"];
     gems += 100;
     [[MGWUTimedResourceManager sharedManager] setValue:gems forTimedResourceWithKey:@"Gems"];
@@ -81,6 +102,7 @@
 
 - (void)gemUsedPressed
 {
+    //  Spend 10 gems per use
     NSInteger gems = [[MGWUTimedResourceManager sharedManager] getValueForTimedResourceWithKey:@"Gems"];
     gems -= 10;
     [[MGWUTimedResourceManager sharedManager] setValue:(gems >= 0) ? gems : 0 forTimedResourceWithKey:@"Gems"];
@@ -115,7 +137,8 @@
 #pragma mark -
 #pragma mark Utility Methods
                                 
-- (NSString *)stringFromTimeInterval:(NSTimeInterval)interval {
+- (NSString *)stringFromTimeInterval:(NSTimeInterval)interval
+{
     NSInteger ti = (NSInteger)interval;
     NSInteger seconds = ti % 60;
     NSInteger minutes = (ti / 60) % 60;

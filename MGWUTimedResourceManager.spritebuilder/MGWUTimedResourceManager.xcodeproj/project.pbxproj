@@ -456,7 +456,7 @@
 					"-ObjC",
 				);
 				PRODUCT_NAME = MGWUTimedResourceManager;
-				PROVISIONING_PROFILE = "";
+				PROVISIONING_PROFILE = "D0190417-620E-479A-82FE-5BF5C154209A";
 				WRAPPER_EXTENSION = app;
 			};
 			name = Debug;
@@ -487,7 +487,7 @@
 					"-ObjC",
 				);
 				PRODUCT_NAME = MGWUTimedResourceManager;
-				PROVISIONING_PROFILE = "";
+				PROVISIONING_PROFILE = "D0190417-620E-479A-82FE-5BF5C154209A";
 				VALIDATE_PRODUCT = YES;
 				WRAPPER_EXTENSION = app;
 			};

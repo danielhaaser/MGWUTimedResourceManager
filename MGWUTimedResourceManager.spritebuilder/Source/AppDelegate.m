@@ -60,7 +60,11 @@
 - (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification
 {
     application.applicationIconBadgeNumber = 0;
-    CCLOG(@"%@", notification.alertBody);
+}
+
+- (void)applicationWillEnterForeground:(UIApplication *)application
+{
+    application.applicationIconBadgeNumber = 0;
 }
 
 - (CCScene*) startScene

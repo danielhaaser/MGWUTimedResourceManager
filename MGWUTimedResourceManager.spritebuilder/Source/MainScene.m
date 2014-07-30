@@ -59,10 +59,12 @@
     [self updateGemsLabels];
 }
 
-- (void)cleanup
+- (void)onExit
 {
     [self unschedule:@selector(updateLivesLabels)];
     [self unschedule:@selector(updateGemsLabels)];
+    
+    [super onExit];
 }
 
 #pragma mark -

@@ -44,6 +44,8 @@ notify user | whether the user will receive a notification when the resource is 
 ```objective-c
 - (void)applicationWillEnterForeground:(UIApplication *)application
 {
+	[super applicationWillEnterForeground:application];
+	
     application.applicationIconBadgeNumber = 0;
 }
 ```
@@ -52,6 +54,8 @@ To make sure the badge isn't added while the user is actively in your app, also 
 ```objective-c
 - (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification
 {
+ 	[super application:application didReceiveLocalNotification:notification];
+
     application.applicationIconBadgeNumber = 0;
 }
 ```

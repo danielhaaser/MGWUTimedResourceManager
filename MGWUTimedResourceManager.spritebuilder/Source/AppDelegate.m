@@ -59,16 +59,16 @@
 
 - (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification
 {
-    application.applicationIconBadgeNumber = 0;
-    
     [super application:application didReceiveLocalNotification:notification];
+    
+    application.applicationIconBadgeNumber = 0;
 }
 
 - (void)applicationWillEnterForeground:(UIApplication *)application
 {
+   [super applicationWillEnterForeground:application];
+
     application.applicationIconBadgeNumber = 0;
-    
-    [super applicationWillEnterForeground:application];
 }
 
 - (CCScene*) startScene

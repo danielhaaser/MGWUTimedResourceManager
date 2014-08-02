@@ -59,8 +59,6 @@
 
 - (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification
 {
-    [super application:application didReceiveLocalNotification:notification];
-    
     application.applicationIconBadgeNumber = 0;
 }
 

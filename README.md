@@ -54,8 +54,6 @@ To make sure the badge isn't added while the user is actively in your app, also 
 ```objective-c
 - (void)application:(UIApplication *)application didReceiveLocalNotification:(UILocalNotification *)notification
 {
- 	[super application:application didReceiveLocalNotification:notification];
-
     application.applicationIconBadgeNumber = 0;
 }
 ```

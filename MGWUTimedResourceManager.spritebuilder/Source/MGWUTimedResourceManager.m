@@ -293,11 +293,14 @@ static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
     NSInteger maximumValue = [[resourceDictionary objectForKey:MAX_VALUE_KEY] integerValue];
     NSInteger valueAvailableToCollect = [[resourceDictionary objectForKey:VALUE_AVAILABLE_TO_COLLECT_KEY] integerValue];
     
-    currentValue += valueAvailableToCollect;
-    
-    if (currentValue > maximumValue)
+    if (currentValue < maximumValue)
     {
-        currentValue = maximumValue;
+        currentValue += valueAvailableToCollect;
+        
+        if (currentValue > maximumValue)
+        {
+            currentValue = maximumValue;
+        }
     }
     
     [resourceDictionary setObject:@(0) forKey:VALUE_AVAILABLE_TO_COLLECT_KEY];

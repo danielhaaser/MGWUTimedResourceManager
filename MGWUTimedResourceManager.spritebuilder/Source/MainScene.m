@@ -35,7 +35,7 @@
     //  Create a gems timed resource that is automatically added
     [[MGWUTimedResourceManager sharedManager] getOrCreateTimedResourceWithKey:@"Gems"
                                                                  initialValue:10
-                                                                 maximumValue:100000
+                                                                 maximumValue:500
                                                               incrementAmount:5
                                                        incrementTimeInSeconds:45.0
                                                                   autoCollect:YES

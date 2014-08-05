@@ -39,7 +39,11 @@
                                                               incrementAmount:5
                                                        incrementTimeInSeconds:45.0
                                                                   autoCollect:YES
-                                                                   notifyUser:YES];
+                                                                   notifyUser:YES
+                                                                    condition:^BOOL{
+                                                                        
+                                                                        return [[MGWUTimedResourceManager sharedManager] getValueForTimedResourceWithKey:@"Gems"] < 20;
+                                                                    }];
     
     //  Set custom life notification text
     [[MGWUTimedResourceManager sharedManager] setNotificationBodyText:@"You have an extra life waiting to be collected!"

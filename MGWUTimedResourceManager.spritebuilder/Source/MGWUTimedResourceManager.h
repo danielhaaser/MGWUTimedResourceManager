@@ -35,6 +35,19 @@
                                   notifyUser:(BOOL)notifyUser;
 
 /**
+    Gets or Creates a timed resource.
+    Selector of Target must return YES for increments to occur
+ */
+-(NSInteger)getOrCreateTimedResourceWithKey:(NSString *)key
+                               initialValue:(NSInteger)initialValue
+                               maximumValue:(NSInteger)maxValue
+                            incrementAmount:(NSInteger)incrementAmount
+                     incrementTimeInSeconds:(NSTimeInterval)incrementTimeInSeconds
+                                autoCollect:(BOOL)autoCollect
+                                 notifyUser:(BOOL)notifyUser
+                                  condition:(BOOL(^)(void))condition;
+
+/**
     Returns the current value of the timed resource with the given key.
  */
 - (NSInteger)getValueForTimedResourceWithKey:(NSString*)key;

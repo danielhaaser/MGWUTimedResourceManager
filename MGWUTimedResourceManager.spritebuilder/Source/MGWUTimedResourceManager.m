@@ -8,6 +8,7 @@
 
 #import "MGWUTimedResourceManager.h"
 #import "NSUserDefaults+Encryption.h"
+#import <objc/message.h>
 
 @implementation MGWUTimedResourceManager
 
@@ -22,6 +23,7 @@ static const NSString* NOTIFY_USER_KEY = @"NotifyUser";
 static const NSString* NOTIFICATION_BODY_TEXT = @"BodyText";
 static const NSString* NOTIFICATION_ALERT_TEXT = @"AlertText";
 static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
+static const char* CHECK_METHOD_NAME = "check";
 
 #pragma mark -
 #pragma mark Lifecycle
@@ -76,9 +78,39 @@ static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
                                  autoCollect:(BOOL)autoCollect
                                   notifyUser:(BOOL)notifyUser
 {
+    return [self getOrCreateTimedResourceWithKey:key
+                                    initialValue:initialValue
+                                    maximumValue:maxValue
+                                 incrementAmount:incrementAmount
+                          incrementTimeInSeconds:incrementTimeInSeconds
+                                     autoCollect:autoCollect
+                                      notifyUser:notifyUser
+                                       condition:nil];
+}
+
+-(NSInteger)getOrCreateTimedResourceWithKey:(NSString *)key
+                               initialValue:(NSInteger)initialValue
+                               maximumValue:(NSInteger)maxValue
+                            incrementAmount:(NSInteger)incrementAmount
+                     incrementTimeInSeconds:(NSTimeInterval)incrementTimeInSeconds
+                                autoCollect:(BOOL)autoCollect
+                                 notifyUser:(BOOL)notifyUser
+                                  condition:(BOOL(^)(void))condition
+{
     NSDictionary* resourceDictionary = [[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key];
     
-    if (!resourceDictionary)
+    // Register a class to store the condition
+    Class conditionClass = objc_allocateClassPair([NSObject class], [self classNameForKey:key], 0);
+    IMP implementation = imp_implementationWithBlock(condition ? condition : ^BOOL(){
+        return YES;
+    });
+    class_addMethod(conditionClass,
+                    sel_registerName(CHECK_METHOD_NAME),
+                    implementation,
+                    "b@:");
+    objc_registerClassPair(conditionClass);
+    
+    if (!resourceDictionary || YES)
     {
         NSDate* now = [NSDate date];
         
@@ -156,6 +188,11 @@ static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
 {
     NSDictionary* resourceDictionary = [self getResourceDictionaryForKey:key];
     
+    if (![self shouldResourceIncrementForKey:key])
+    {
+        return INT_MAX;
+    }
+    
     NSDate* dateValueLastLessThanMax = [resourceDictionary objectForKey:DATE_VALUE_LAST_LESS_THAN_MAX_KEY];
     
     NSTimeInterval timeIntervalSinceDateValueLastLessThanMax = [[NSDate date] timeIntervalSinceDate:dateValueLastLessThanMax];
@@ -221,6 +258,19 @@ static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
     NSDictionary* resourceDictionary = [[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key];
     NSAssert(resourceDictionary != nil, @"Error - Resource does not exist or key is wrong. Did you create the resource with getOrCreateTimedResourceWithKey: ?");
     return resourceDictionary;
+}
+
+- (BOOL)shouldResourceIncrementForKey:(NSString*)key
+{
+    Class conditionalClass = objc_lookUpClass([self classNameForKey:key]);
+    id conditional = [[conditionalClass alloc] init];
+    BOOL shouldIncrement = ((BOOL (*)(id, SEL))objc_msgSend)(conditional, sel_registerName(CHECK_METHOD_NAME));
+    return shouldIncrement;
+}
+
+- (const char*)classNameForKey:(NSString*)key
+{
+    return [[NSString stringWithFormat:@"$$%@$$",key] UTF8String];
 }
 
 #pragma mark Collection

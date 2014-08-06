@@ -31,6 +31,7 @@
                                                                   autoCollect:NO
                                                                    notifyUser:YES];
     
+    // Only generate a notification when the user has enough lives to collect to max them out
     [[MGWUTimedResourceManager sharedManager] notifyUserOnMaximum:YES forTimedResourceWithKey:@"Lives"];
 
     

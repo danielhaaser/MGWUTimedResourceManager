@@ -36,6 +36,12 @@ notify user | whether the user will receive a notification when the resource is 
  body text | the message the user sees in their notification
  alert text | the action verb - e.g. "swipe to *play*", "swipe to *collect*"
  alert sound | _(optional)_ path to a custom notification sound
+
+ Optionally, you can set the notification to happen once their timed resource is maxed out, instead of on the next available one:
+
+```objective-c
+ 	[[MGWUTimedResourceManager sharedManager] notifyUserOnMaximum:YES forTimedResourceWithKey:@"Lives"];
+ ```
  
 ### Badge Icon
  

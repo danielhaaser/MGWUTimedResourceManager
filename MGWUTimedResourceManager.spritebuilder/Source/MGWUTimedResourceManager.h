@@ -76,4 +76,9 @@
  */
 - (void)setNotificationBodyText:(NSString*)bodyText alertText:(NSString*)alertText andSound:(NSString*)soundFileName forKey:(NSString*)key;
 
+/**
+    When set to true, a notification will be scheduled for when the timed resource hits the maximum value.
+ */
+- (void)notifyUserOnMaximum:(BOOL)notifyOnMax forTimedResourceWithKey:(NSString*)key;
+
 @end

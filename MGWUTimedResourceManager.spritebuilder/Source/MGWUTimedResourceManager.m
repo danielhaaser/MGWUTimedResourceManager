@@ -22,6 +22,7 @@ static const NSString* NOTIFY_USER_KEY = @"NotifyUser";
 static const NSString* NOTIFICATION_BODY_TEXT = @"BodyText";
 static const NSString* NOTIFICATION_ALERT_TEXT = @"AlertText";
 static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
+static const NSString* NOTIFICATION_NOTIFY_ON_MAX = @"NotifyOnMax";
 
 #pragma mark -
 #pragma mark Lifecycle
@@ -93,7 +94,8 @@ static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
                                                 NOTIFY_USER_KEY: @(notifyUser),
                                                 NOTIFICATION_BODY_TEXT: @"",
                                                 NOTIFICATION_ALERT_TEXT: @"",
-                                                NOTIFICATION_ALERT_SOUND: @""};
+                                                NOTIFICATION_ALERT_SOUND: @"",
+                                                NOTIFICATION_NOTIFY_ON_MAX: @NO};
         
         [[NSUserDefaults standardUserDefaults] setObjectEncrypted:newResourceDictionary forKey:key];
     }
@@ -152,31 +154,9 @@ static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
     [self scheduleLocalNotificationForResourceWithKey:key];
 }
 
-- (NSTimeInterval)getSecondsLeftBeforeIncrementForTimedResourceWithKey:(NSString*)key
+- (NSTimeInterval)getSecondsLeftBeforeIncrementForTimedResourceWithKey:(NSString *)key
 {
-    NSDictionary* resourceDictionary = [self getResourceDictionaryForKey:key];
-    
-    NSDate* dateValueLastLessThanMax = [resourceDictionary objectForKey:DATE_VALUE_LAST_LESS_THAN_MAX_KEY];
-    
-    NSTimeInterval timeIntervalSinceDateValueLastLessThanMax = [[NSDate date] timeIntervalSinceDate:dateValueLastLessThanMax];
-    NSTimeInterval timeBetweenIncrements = [[resourceDictionary objectForKey:INCREMENT_TIME_INTERVAL_KEY] doubleValue];
-
-    NSInteger uncollectedIncrements = [self getNumberOfUncollectedIncrementsElapsedForKey:key];
-    
-    NSTimeInterval result = (timeBetweenIncrements * (uncollectedIncrements + 1)) - timeIntervalSinceDateValueLastLessThanMax;
-    
-    NSInteger value = [[resourceDictionary objectForKey:VALUE_KEY] integerValue];
-    NSInteger maximumValue = [[resourceDictionary objectForKey:MAX_VALUE_KEY] integerValue];
-    NSInteger uncollectedValue = [[resourceDictionary objectForKey:VALUE_AVAILABLE_TO_COLLECT_KEY] integerValue];
-    
-    if (value + uncollectedValue < maximumValue)
-    {
-        return (result >= 0.0) ? result : 0.0;
-    }
-    else
-    {
-        return 0.0;
-    }
+    return [self getSecondsLeftBeforeIncrementToMaxValue:NO forTimedResourceWithKey:key];
 }
 
 - (NSInteger)getMaximumValueForTimedResourceWithKey:(NSString*)key
@@ -211,6 +191,13 @@ static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
     [[NSUserDefaults standardUserDefaults] setObjectEncrypted:[NSDictionary dictionaryWithDictionary:resourceDictionary] forKey:key];
 }
 
+- (void)notifyUserOnMaximum:(BOOL)notifyOnMax forTimedResourceWithKey:(NSString*)key
+{
+    NSMutableDictionary* resourceDictionary = [[self getResourceDictionaryForKey:key] mutableCopy];
+    [resourceDictionary setObject:@(notifyOnMax) forKey:NOTIFICATION_NOTIFY_ON_MAX];
+    [[NSUserDefaults standardUserDefaults] setObjectEncrypted:[NSDictionary dictionaryWithDictionary:resourceDictionary] forKey:key];
+}
+
 #pragma mark -
 #pragma mark Private Methods
 
@@ -221,6 +208,55 @@ static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
     NSDictionary* resourceDictionary = [[NSUserDefaults standardUserDefaults] objectEncryptedForKey:key];
     NSAssert(resourceDictionary != nil, @"Error - Resource does not exist or key is wrong. Did you create the resource with getOrCreateTimedResourceWithKey: ?");
     return resourceDictionary;
+}
+
+// Returned value is number of increments left rounded down (?)
+- (NSInteger)getNumberOfIncrementsUntilMaxForKey:(NSString*)key
+{
+    NSDictionary* resourceDictionary = [self getResourceDictionaryForKey:key];
+    
+    NSInteger value = [[resourceDictionary objectForKey:VALUE_KEY] integerValue];
+    NSInteger uncollectedValue = [[resourceDictionary objectForKey:VALUE_AVAILABLE_TO_COLLECT_KEY] integerValue];
+    NSInteger maximumValue = [[resourceDictionary objectForKey:MAX_VALUE_KEY] integerValue];
+    NSInteger incrementAmount = [[resourceDictionary objectForKey:INCREMENT_AMOUNT_KEY] integerValue];
+    
+    NSInteger valueUntilMax = maximumValue - value - uncollectedValue;
+    return valueUntilMax / incrementAmount;
+}
+
+- (NSTimeInterval)getSecondsLeftBeforeIncrementToMaxValue:(BOOL)maxValue forTimedResourceWithKey:(NSString*)key
+{
+    NSDictionary* resourceDictionary = [self getResourceDictionaryForKey:key];
+    
+    NSDate* dateValueLastLessThanMax = [resourceDictionary objectForKey:DATE_VALUE_LAST_LESS_THAN_MAX_KEY];
+    
+    NSTimeInterval timeIntervalSinceDateValueLastLessThanMax = [[NSDate date] timeIntervalSinceDate:dateValueLastLessThanMax];
+    NSTimeInterval timeBetweenIncrements = [[resourceDictionary objectForKey:INCREMENT_TIME_INTERVAL_KEY] doubleValue];
+    
+    NSInteger uncollectedIncrements = [self getNumberOfUncollectedIncrementsElapsedForKey:key];
+    NSInteger value = [[resourceDictionary objectForKey:VALUE_KEY] integerValue];
+    NSInteger uncollectedValue = [[resourceDictionary objectForKey:VALUE_AVAILABLE_TO_COLLECT_KEY] integerValue];
+    NSInteger maximumValue = [[resourceDictionary objectForKey:MAX_VALUE_KEY] integerValue];
+    
+    NSTimeInterval result = (timeBetweenIncrements * (uncollectedIncrements + 1)) - timeIntervalSinceDateValueLastLessThanMax;
+    
+    if (maxValue)
+    {
+        NSInteger incrementsUntilMax = [self getNumberOfIncrementsUntilMaxForKey:key];
+        if (incrementsUntilMax > 0)
+        {
+            result = (incrementsUntilMax - 1) * timeBetweenIncrements + result;
+        }
+    }
+    
+    if (value + uncollectedValue < maximumValue)
+    {
+        return (result >= 0.0) ? result : 0.0;
+    }
+    else
+    {
+        return 0.0;
+    }
 }
 
 #pragma mark Collection
@@ -345,10 +381,9 @@ static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
     
     if (notifyUser)
     {
+        BOOL notifyOnMaximum = [[resourceDictionary objectForKey:NOTIFICATION_NOTIFY_ON_MAX] boolValue];
         BOOL autoCollect = [[resourceDictionary objectForKey:AUTO_COLLECT_KEY] boolValue];
-        NSInteger incrementAmount = [[resourceDictionary objectForKey:INCREMENT_AMOUNT_KEY] integerValue];
-        NSTimeInterval timeBeforeResourceAvailable = [self getSecondsLeftBeforeIncrementForTimedResourceWithKey:key];
-        
+
         UILocalNotification* localNotification = [UILocalNotification new];
         
         if (localNotification == nil)
@@ -356,11 +391,20 @@ static const NSString* NOTIFICATION_ALERT_SOUND = @"AlertSound";
             NSLog(@"MGWUTimedResourceManager Error - User notification not scheduled.");
             return;
         }
-        
+
+        NSTimeInterval timeBeforeResourceAvailable = [self getSecondsLeftBeforeIncrementToMaxValue:notifyOnMaximum forTimedResourceWithKey:key];
+
+        // If we're scheduling a notification less than 5 seconds from now abort instead of scheduling it
+        if (timeBeforeResourceAvailable < 5.0f)
+        {
+            return;
+        }
         localNotification.fireDate = [NSDate dateWithTimeInterval:timeBeforeResourceAvailable sinceDate:[NSDate date]];
+        
         
         if (autoCollect)
         {
+            NSInteger incrementAmount = [[resourceDictionary objectForKey:INCREMENT_AMOUNT_KEY] integerValue];
             localNotification.alertBody = [NSString stringWithFormat:@"Your %@ count has increased by %ld!", key, (long)incrementAmount];
             localNotification.alertAction = @"play";
         }

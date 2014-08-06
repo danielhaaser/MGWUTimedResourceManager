@@ -30,6 +30,8 @@
                                                        incrementTimeInSeconds:30.0
                                                                   autoCollect:NO
                                                                    notifyUser:YES];
+    
+    [[MGWUTimedResourceManager sharedManager] notifyUserOnMaximum:YES forTimedResourceWithKey:@"Lives"];
 
     
     //  Create a gems timed resource that is automatically added

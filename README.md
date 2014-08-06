@@ -40,7 +40,7 @@ notify user | whether the user will receive a notification when the resource is 
  Optionally, you can set the notification to happen once their timed resource is maxed out, instead of on the next available one:
 
 ```objective-c
- 	[[MGWUTimedResourceManager sharedManager] notifyUserOnMaximum:YES forTimedResourceWithKey:@"Lives"];
+ 	notifyUserOnMaximum:(BOOL)notifyOnMax forTimedResourceWithKey:(NSString*)key
  ```
  
 ### Badge Icon

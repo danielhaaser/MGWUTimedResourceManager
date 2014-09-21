@@ -58,6 +58,11 @@
 - (NSInteger)getMaximumValueForTimedResourceWithKey:(NSString*)key;
 
 /**
+    Sets the maximum value that the resource can assume before it will stop incrementing
+ */
+- (void)setMaximumValue:(NSInteger)maxValue forTimedResourceWithKey:(NSString*)key;
+
+/**
     If autoCollect is set to NO, this returns the amount of resources available to collect
  */
 - (NSInteger)getAmountOfResourceAvailableForCollectionWithKey:(NSString*)key;

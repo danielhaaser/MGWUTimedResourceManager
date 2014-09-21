@@ -166,6 +166,17 @@ static const NSString* NOTIFICATION_NOTIFY_ON_MAX = @"NotifyOnMax";
     return [maximumValue integerValue];
 }
 
+- (void)setMaximumValue:(NSInteger)maxValue forTimedResourceWithKey:(NSString*)key
+{
+    [self iterativelyAddResourceToCollectQueueWithKey:key];
+    
+    NSMutableDictionary* resourceDictionary = [[self getResourceDictionaryForKey:key] mutableCopy];
+    [resourceDictionary setObject:@(maxValue) forKey:MAX_VALUE_KEY];
+    [resourceDictionary setObject:[NSDate date] forKey:DATE_VALUE_LAST_LESS_THAN_MAX_KEY];
+    
+    [[NSUserDefaults standardUserDefaults] setObjectEncrypted:[NSDictionary dictionaryWithDictionary:resourceDictionary] forKey:key];
+}
+
 - (void)collectResourceWithKey:(NSString*)key
 {
     [self iterativelyAddResourceToCollectQueueWithKey:key];
